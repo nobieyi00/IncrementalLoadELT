@@ -1,0 +1,97 @@
+--Create Customer Table
+--Create Database Demo;
+--drop database demo
+Create table Demo_Customer
+(CustomerId Int
+, Name Varchar(30)
+ , Height varchar(10)
+, LastModifiedDate date);
+
+
+Create table Demo_Address
+(AddressID int
+, CustomerID int
+, Addressline varchar(50)
+,CityID int
+, LastModifiedDate date);
+
+
+Create Table Demo_City
+(CityID int
+, CityName varchar(50)
+, LastModifiedDate date);
+
+Insert into Demo_Customer
+select 1, 'John Doe', '6 ft', cast('2023-01-01' as date)
+union all
+select 2, 'Lisa Ked','5ft 7 in', cast('2023-01-01' as date)
+
+Select * from Demo_Customer
+
+
+Insert into Demo_Address
+select 1, 1, '123 Main St', 1, cast('2023-01-01' as date)
+union all
+select 2, 2,'203 Main Rd', 1, cast('2023-01-01' as date)
+
+Select * from Demo_Address
+
+
+Insert into Demo_City
+select 1, 'NYC',  cast('2023-01-01' as date)
+
+
+select * from Demo_City
+
+
+-----Data Mart Query
+CREATE TABLE Customer_DIM AS
+  
+select C.CustomerID, C.Name, C.Height, A.Addressline, City.CityName,C.lastModifieddate
+from Demo_Customer C
+left join Demo_Address A on C.CustomerId = A.CustomerID
+left join Demo_City City on A.CityID = City.CityID
+
+---for Incremental
+Insert into Demo_Customer
+select 3, 'Kenny Cox', '7 ft', cast('2023-01-20' as date)
+
+Update Demo_Address
+set Addressline = '205 Main Rd'
+, lastmodifieddate = cast('2023-01-20' as date)
+where AddressID =2
+
+---lastest CustomerDIM
+select C.CustomerID, C.Name, C.Height, A.Addressline, City.CityName,C.lastModifieddate
+from Demo_Customer C
+left join Demo_Address A on C.CustomerId = A.CustomerID
+left join Demo_City City on A.CityID = City.CityID
+
+---Incremental query
+CREATE TABLE CUSTOMER_STAGE AS
+select C.CustomerID, C.Name, C.Height, A.Addressline, City.CityName,C.lastModifieddate
+from Demo_Customer C
+left join Demo_Address A on C.CustomerId = A.CustomerID
+left join Demo_City City on A.CityID = City.CityID
+where C.lastmodifieddate > '2023-01-01' 
+or A.lastmodifieddate > '2023-01-01'
+or City.lastmodifieddate > '2023-01-01'
+
+select * from customer_dim
+MERGE INTO Customer_DIM cd
+USING Customer_Stage cs
+ON cd.customerid = cs.customerid
+WHEN MATCHED THEN
+  UPDATE SET 
+  name = cs.name
+  , Height = cs.Height
+  , Addressline = cs.Addressline
+  , CityName = cs.CityName
+  , lastModifieddate = cs.Lastmodifieddate
+WHEN NOT MATCHED THEN
+  INSERT (CustomerID, Name, Height, Addressline, CityName,lastModifieddate)
+  VALUES (cs.CustomerID, cs.Name, cs.Height, cs.Addressline, cs.CityName,cs.lastModifieddate);
+
+
+--after Merge
+select * from customer_dim
